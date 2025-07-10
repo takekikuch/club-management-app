@@ -2,17 +2,17 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "Expo Firebase Starter",
-    slug: "expo-firebase",
+    name: "Club Management App",
+    slug: "club-management-app",
     privacy: "public",
     platforms: ["ios", "android"],
-    version: "0.19.0",
+    version: "1.0.0",
     orientation: "portrait",
-    icon: "./assets/flame.png",
+    icon: "./assets/icon.png",
     splash: {
       image: "./assets/splash.png",
       resizeMode: "cover",
-      backgroundColor: "#F57C00",
+      backgroundColor: "#4F46E5",
     },
     updates: {
       fallbackToCacheTimeout: 0,

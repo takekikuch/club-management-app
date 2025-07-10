@@ -1,0 +1,126 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isClubMember(clubId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid));
+    }
+    
+    function isClubOwnerOrAdmin(clubId) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid)).data.role in ['owner', 'admin'];
+    }
+    
+    function isClubOwner(clubId) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid)).data.role == 'owner';
+    }
+    
+    function isTargetUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasAccessToGroups(clubId, targetGroupIds) {
+      let userGroups = get(/databases/$(database)/documents/clubs/$(clubId)/users/$(request.auth.uid)).data.groupIds;
+      return targetGroupIds.hasAny(userGroups);
+    }
+
+    // Root clubs collection
+    match /clubs/{clubId} {
+      // Club document: only members can read, only owner can write
+      allow read: if isClubMember(clubId);
+      allow write: if isClubOwner(clubId);
+      
+      // Club users subcollection
+      match /users/{userId} {
+        // Members can read all users in their club
+        allow read: if isClubMember(clubId);
+        // Only owner/admin can create/update users, users can update their own profile
+        allow create, update: if isClubOwnerOrAdmin(clubId) || 
+                                (isTargetUser(userId) && isClubMember(clubId));
+        // Only owner can delete users
+        allow delete: if isClubOwner(clubId);
+      }
+      
+      // Club groups subcollection
+      match /groups/{groupId} {
+        // Members can read all groups
+        allow read: if isClubMember(clubId);
+        // Only owner/admin can manage groups
+        allow write: if isClubOwnerOrAdmin(clubId);
+      }
+      
+      // Club events subcollection
+      match /events/{eventId} {
+        // Members can read events for their groups
+        allow read: if isClubMember(clubId) && 
+                      (isClubOwnerOrAdmin(clubId) || 
+                       hasAccessToGroups(clubId, resource.data.targetGroupIds));
+        // Only owner/admin can manage events
+        allow write: if isClubOwnerOrAdmin(clubId);
+      }
+      
+      // Club attendance subcollection
+      match /attendance/{eventId} {
+        // Members can read attendance for events they have access to
+        allow read: if isClubMember(clubId);
+        
+        match /responses/{userId} {
+          // Members can read all responses
+          allow read: if isClubMember(clubId);
+          // Members can only update their own responses
+          allow create, update: if isClubMember(clubId) && isTargetUser(userId);
+          // Only owner/admin can delete responses
+          allow delete: if isClubOwnerOrAdmin(clubId);
+        }
+      }
+      
+      // Club messages subcollection
+      match /messages/{messageId} {
+        // Members can read messages for their groups
+        allow read: if isClubMember(clubId) && 
+                      (isClubOwnerOrAdmin(clubId) || 
+                       hasAccessToGroups(clubId, resource.data.targetGroupIds));
+        // Only owner/admin can create messages
+        allow create, update: if isClubOwnerOrAdmin(clubId);
+        // Only owner can delete messages
+        allow delete: if isClubOwner(clubId);
+      }
+      
+      // Club notifications subcollection
+      match /notifications/{notificationId} {
+        // Members can read their own notifications
+        allow read: if isClubMember(clubId) && 
+                      request.auth.uid in resource.data.recipientIds;
+        // Only owner/admin can manage notifications
+        allow write: if isClubOwnerOrAdmin(clubId);
+      }
+      
+      // Club analytics subcollection
+      match /analytics/{date} {
+        // Only owner/admin can read analytics
+        allow read: if isClubOwnerOrAdmin(clubId);
+        // System only (no client writes allowed)
+        allow write: if false;
+      }
+    }
+    
+    // Global user profiles (cross-club user data)
+    match /users/{userId} {
+      // Users can only read/write their own global profile
+      allow read, write: if isTargetUser(userId);
+    }
+    
+    // Deny all other requests
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
