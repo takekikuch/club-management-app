@@ -5,26 +5,56 @@ import { sendPasswordResetEmail } from "firebase/auth";
 
 import { passwordResetSchema } from "../utils";
 import { Colors, auth } from "../config";
-import { View, TextInput, Button, FormErrorMessage } from "../components";
+import { View, TextInput, Button, FormErrorMessage, LoadingIndicator } from "../components";
 
 export const ForgotPasswordScreen = ({ navigation }) => {
   const [errorState, setErrorState] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const handleSendPasswordResetEmail = (values) => {
+  // Firebase エラーメッセージの日本語化
+  const getJapaneseErrorMessage = (errorCode) => {
+    switch (errorCode) {
+      case 'auth/user-not-found':
+        return 'このメールアドレスは登録されていません。';
+      case 'auth/invalid-email':
+        return 'メールアドレスの形式が正しくありません。';
+      case 'auth/too-many-requests':
+        return 'リクエストが多すぎます。しばらく時間をおいてから再試行してください。';
+      case 'auth/network-request-failed':
+        return 'ネットワークエラーが発生しました。インターネット接続をご確認ください。';
+      default:
+        return 'パスワードリセットメールの送信に失敗しました。しばらく時間をおいてから再試行してください。';
+    }
+  };
+
+  const handleSendPasswordResetEmail = async (values) => {
     const { email } = values;
+    setIsLoading(true);
+    setErrorState("");
+    setSuccessMessage("");
 
-    sendPasswordResetEmail(auth, email)
-      .then(() => {
-        console.log("Success: Password Reset Email sent.");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setSuccessMessage("パスワードリセットメールを送信しました。メールをご確認ください。");
+      // 3秒後にログイン画面に自動遷移
+      setTimeout(() => {
         navigation.navigate("Login");
-      })
-      .catch((error) => setErrorState(error.message));
+      }, 3000);
+    } catch (error) {
+      setErrorState(getJapaneseErrorMessage(error.code));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <View isSafe style={styles.container}>
       <View style={styles.innerContainer}>
-        <Text style={styles.screenTitle}>Reset your password</Text>
+        <Text style={styles.screenTitle}>パスワードリセット</Text>
+        <Text style={styles.description}>
+          登録済みのメールアドレスを入力してください。パスワードリセット用のメールをお送りします。
+        </Text>
       </View>
       <Formik
         initialValues={{ email: "" }}
@@ -44,7 +74,7 @@ export const ForgotPasswordScreen = ({ navigation }) => {
             <TextInput
               name="email"
               leftIconName="email"
-              placeholder="Enter email"
+              placeholder="メールアドレスを入力"
               autoCapitalize="none"
               keyboardType="email-address"
               textContentType="emailAddress"
@@ -53,13 +83,27 @@ export const ForgotPasswordScreen = ({ navigation }) => {
               onBlur={handleBlur("email")}
             />
             <FormErrorMessage error={errors.email} visible={touched.email} />
-            {/* Display Screen Error Mesages */}
+            {/* Display Screen Error Messages */}
             {errorState !== "" ? (
               <FormErrorMessage error={errorState} visible={true} />
             ) : null}
-            {/* Password Reset Send Email  button */}
-            <Button style={styles.button} onPress={handleSubmit}>
-              <Text style={styles.buttonText}>Send Reset Email</Text>
+            {/* Display Success Message */}
+            {successMessage !== "" ? (
+              <FormErrorMessage error={successMessage} visible={true} />
+            ) : null}
+            {/* Loading indicator */}
+            {isLoading && (
+              <LoadingIndicator testID="loading-indicator" size="small" />
+            )}
+            {/* Password Reset Send Email button */}
+            <Button 
+              style={[styles.button, (isLoading || successMessage) && styles.buttonDisabled]} 
+              onPress={handleSubmit}
+              disabled={isLoading || successMessage}
+            >
+              <Text style={styles.buttonText}>
+                {isLoading ? 'メール送信中...' : 'パスワードリセットメールを送信'}
+              </Text>
             </Button>
           </>
         )}
@@ -68,7 +112,7 @@ export const ForgotPasswordScreen = ({ navigation }) => {
       <Button
         style={styles.borderlessButtonContainer}
         borderless
-        title={"Go back to Login"}
+        title={"ログイン画面に戻る"}
         onPress={() => navigation.navigate("Login")}
       />
     </View>
@@ -90,6 +134,14 @@ const styles = StyleSheet.create({
     color: Colors.black,
     paddingTop: 20,
   },
+  description: {
+    fontSize: 16,
+    color: Colors.mediumGray,
+    textAlign: "center",
+    marginTop: 16,
+    marginBottom: 32,
+    paddingHorizontal: 16,
+  },
   button: {
     width: "100%",
     justifyContent: "center",
@@ -98,6 +150,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.orange,
     padding: 10,
     borderRadius: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: Colors.mediumGray,
+    opacity: 0.6,
   },
   buttonText: {
     fontSize: 20,

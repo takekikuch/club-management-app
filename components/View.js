@@ -1,15 +1,27 @@
 import React from 'react';
-import { View as RNView, StyleSheet } from 'react-native';
+import { Box } from '@gluestack-ui/themed';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export const View = ({ isSafe, style, children }) => {
+export const View = ({ isSafe, style, children, ...props }) => {
   const insets = useSafeAreaInsets();
 
   if (isSafe) {
     return (
-      <RNView style={{ paddingTop: insets.top, ...style }}>{children}</RNView>
+      <Box 
+        style={[{ paddingTop: insets.top }, style]} 
+        {...props}
+      >
+        {children}
+      </Box>
     );
   }
 
-  return <RNView style={StyleSheet.flatten(style)}>{children}</RNView>;
+  return (
+    <Box 
+      style={style} 
+      {...props}
+    >
+      {children}
+    </Box>
+  );
 };

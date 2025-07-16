@@ -1,39 +1,47 @@
-import React, { useCallback } from 'react';
-import { Pressable, Text, StyleSheet } from 'react-native';
-
-import { Colors } from '../config';
+import React from 'react';
+import { Button as GluestackButton, ButtonText } from '@gluestack-ui/themed';
+import { ClubThemeTokens } from '../config/theme';
 
 export const Button = ({
   children,
   onPress,
-  activeOpacity = 0.3,
   borderless = false,
   title,
-  style
+  style,
+  ...props
 }) => {
-  const _style = useCallback(({ pressed }) => [
-    style,
-    { opacity: pressed ? activeOpacity : 1 }
-  ]);
-
   if (borderless) {
     return (
-      <Pressable onPress={onPress} style={_style}>
-        <Text style={styles.borderlessButtonText}>{title}</Text>
-      </Pressable>
+      <GluestackButton 
+        variant="link" 
+        onPress={onPress} 
+        style={style}
+        {...props}
+      >
+        <ButtonText color={ClubThemeTokens.primary}>{title}</ButtonText>
+      </GluestackButton>
+    );
+  }
+
+  if (title) {
+    return (
+      <GluestackButton 
+        onPress={onPress} 
+        style={style}
+        {...props}
+      >
+        <ButtonText>{title}</ButtonText>
+      </GluestackButton>
     );
   }
 
   return (
-    <Pressable onPress={onPress} style={_style}>
+    <GluestackButton 
+      onPress={onPress} 
+      style={style}
+      {...props}
+    >
       {children}
-    </Pressable>
+    </GluestackButton>
   );
 };
-
-const styles = StyleSheet.create({
-  borderlessButtonText: {
-    fontSize: 16,
-    color: Colors.blue
-  }
-});

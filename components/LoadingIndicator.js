@@ -1,21 +1,11 @@
 import React from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
+import { Spinner, Center } from '@gluestack-ui/themed';
+import { ClubThemeTokens } from '../config/theme';
 
-import { Colors } from '../config';
-import { View } from './View';
-
-export const LoadingIndicator = () => {
+export const LoadingIndicator = ({ size = 'large', color = ClubThemeTokens.secondary, ...props }) => {
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size='large' color={Colors.orange} />
-    </View>
+    <Center flex={1} {...props}>
+      <Spinner size={size} color={color} />
+    </Center>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center'
-  }
-});

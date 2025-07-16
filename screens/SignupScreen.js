@@ -4,13 +4,14 @@ import { Formik } from "formik";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-import { View, TextInput, Logo, Button, FormErrorMessage } from "../components";
+import { View, TextInput, Logo, Button, FormErrorMessage, LoadingIndicator } from "../components";
 import { Images, Colors, auth } from "../config";
 import { useTogglePasswordVisibility } from "../hooks";
 import { signupValidationSchema } from "../utils";
 
 export const SignupScreen = ({ navigation }) => {
   const [errorState, setErrorState] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const {
     passwordVisibility,
@@ -21,12 +22,36 @@ export const SignupScreen = ({ navigation }) => {
     confirmPasswordVisibility,
   } = useTogglePasswordVisibility();
 
+  // Firebase エラーメッセージの日本語化
+  const getJapaneseErrorMessage = (errorCode) => {
+    switch (errorCode) {
+      case 'auth/email-already-in-use':
+        return 'このメールアドレスは既に使用されています。';
+      case 'auth/invalid-email':
+        return 'メールアドレスの形式が正しくありません。';
+      case 'auth/weak-password':
+        return 'パスワードが弱すぎます。より強力なパスワードを設定してください。';
+      case 'auth/network-request-failed':
+        return 'ネットワークエラーが発生しました。インターネット接続をご確認ください。';
+      case 'auth/operation-not-allowed':
+        return 'この操作は許可されていません。';
+      default:
+        return 'アカウント作成に失敗しました。しばらく時間をおいてから再試行してください。';
+    }
+  };
+
   const handleSignup = async (values) => {
     const { email, password } = values;
+    setIsLoading(true);
+    setErrorState("");
 
-    createUserWithEmailAndPassword(auth, email, password).catch((error) =>
-      setErrorState(error.message)
-    );
+    try {
+      await createUserWithEmailAndPassword(auth, email, password);
+    } catch (error) {
+      setErrorState(getJapaneseErrorMessage(error.code));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,7 +60,7 @@ export const SignupScreen = ({ navigation }) => {
         {/* LogoContainer: consist app logo and screen title */}
         <View style={styles.logoContainer}>
           <Logo uri={Images.logo} />
-          <Text style={styles.screenTitle}>Create a new account!</Text>
+          <Text style={styles.screenTitle}>新しいアカウントを作成</Text>
         </View>
         {/* Formik Wrapper */}
         <Formik
@@ -60,7 +85,7 @@ export const SignupScreen = ({ navigation }) => {
               <TextInput
                 name="email"
                 leftIconName="email"
-                placeholder="Enter email"
+                placeholder="メールアドレスを入力"
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
@@ -73,13 +98,14 @@ export const SignupScreen = ({ navigation }) => {
               <TextInput
                 name="password"
                 leftIconName="key-variant"
-                placeholder="Enter password"
+                placeholder="パスワードを入力"
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry={passwordVisibility}
                 textContentType="newPassword"
                 rightIcon={rightIcon}
                 handlePasswordVisibility={handlePasswordVisibility}
+                testID="password-toggle"
                 value={values.password}
                 onChangeText={handleChange("password")}
                 onBlur={handleBlur("password")}
@@ -91,13 +117,14 @@ export const SignupScreen = ({ navigation }) => {
               <TextInput
                 name="confirmPassword"
                 leftIconName="key-variant"
-                placeholder="Enter password"
+                placeholder="パスワードを再入力"
                 autoCapitalize="none"
                 autoCorrect={false}
                 secureTextEntry={confirmPasswordVisibility}
                 textContentType="password"
                 rightIcon={confirmPasswordIcon}
                 handlePasswordVisibility={handleConfirmPasswordVisibility}
+                testID="confirm-password-toggle"
                 value={values.confirmPassword}
                 onChangeText={handleChange("confirmPassword")}
                 onBlur={handleBlur("confirmPassword")}
@@ -110,9 +137,19 @@ export const SignupScreen = ({ navigation }) => {
               {errorState !== "" ? (
                 <FormErrorMessage error={errorState} visible={true} />
               ) : null}
+              {/* Loading indicator */}
+              {isLoading && (
+                <LoadingIndicator testID="loading-indicator" size="small" />
+              )}
               {/* Signup button */}
-              <Button style={styles.button} onPress={handleSubmit}>
-                <Text style={styles.buttonText}>Signup</Text>
+              <Button 
+                style={[styles.button, isLoading && styles.buttonDisabled]} 
+                onPress={handleSubmit}
+                disabled={isLoading}
+              >
+                <Text style={styles.buttonText}>
+                  {isLoading ? 'アカウント作成中...' : 'アカウント作成'}
+                </Text>
               </Button>
             </>
           )}
@@ -121,7 +158,7 @@ export const SignupScreen = ({ navigation }) => {
         <Button
           style={styles.borderlessButtonContainer}
           borderless
-          title={"Already have an account?"}
+          title={"既にアカウントをお持ちの方はこちら"}
           onPress={() => navigation.navigate("Login")}
         />
       </KeyboardAwareScrollView>
@@ -152,6 +189,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.orange,
     padding: 10,
     borderRadius: 8,
+  },
+  buttonDisabled: {
+    backgroundColor: Colors.mediumGray,
+    opacity: 0.6,
   },
   buttonText: {
     fontSize: 20,
